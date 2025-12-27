@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ege mert gecme notu hesaplayici</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width: 860px; margin: 24px auto; padding: 0 14px; }
+    h1 { font-size: 22px; margin-bottom: 12px; }
+    label { font-size: 13px; color: #333; display:block; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 10px; }
+    button { margin-top: 12px; padding: 12px; width: 100%; font-size: 16px; border: 0; border-radius: 12px; cursor: pointer; }
+    .out { margin-top: 14px; padding: 12px; border: 1px solid #ddd; border-radius: 12px; }
+    .ok { color: #0a7; font-weight: 700; }
+    .no { color: #c22; font-weight: 700; }
+    small { color:#666; display:block; margin-top: 6px; }
+
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .grid3b { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+
+    @media (max-width: 800px){
+      .grid3, .grid3b { grid-template-columns: 1fr; }
+    }
+
+    /* spinner kapat */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    /* vize2 yüzdesi pasif görünüm */
+    input:disabled { background: #f3f3f3; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>ege mert gecme notu hesaplayici</h1>
+
+  <!-- Notlar -->
+  <div class="grid3">
+    <div>
+      <label>vize 1</label>
+      <input id="mid1" type="number" min="0" max="100" placeholder="45 gibi" />
+    </div>
+    <div>
+      <label>vize 2 (bos brakabilirsin)</label>
+      <input id="mid2" type="number" min="0" max="100" placeholder="50 gibi" />
+    </div>
+    <div>
+      <label>final (bos birakabilirsin)</label>
+      <input id="fin" type="number" min="0" max="100" placeholder="60 gibi" />
+    </div>
+  </div>
+
+  <!-- Yüzdeler -->
+  <div class="grid3b">
+    <div>
+      <label>vize 1 yuzdesi</label>
+      <input id="w1" type="number" min="0" max="100" value="40" />
+    </div>
+    <div>
+      <label>vize 2 yuzdesi (yoksa 0 kalsin)</label>
+      <input id="w2" type="number" min="0" max="100" value="0" />
+    </div>
+    <div>
+      <label>final yuzdesi</label>
+      <input id="wf" type="number" min="0" max="100" value="60" />
+    </div>
+
+    <div style="grid-column: 1 / -1;">
+      <label>Gecme Notu</label>
+      <input id="pass" type="number" min="0" max="100" value="50" />
+    </div>
+  </div>
+
+  <button onclick="calc()">hesapla</button>
+
+  <div class="out" id="out">
+    <small>not: vize 2 bos birakilabilir. vize 2 notu bossa vize 2 yuzdesi otomatik 0 sayilir eger vize 2 notu girersen yuzdesini degistirebilirsin. Final bossa “finalden kac lazim” hesaplanir.</small>
+  </div>
+
+<script>
+function valOrNull(id){
+  const s = document.getElementById(id).value.trim();
+  return s === "" ? null : Number(s);
+}
+function clamp0to100(x){
+  if (x === null || Number.isNaN(x)) return null;
+  if (x < 0) return 0;
+  if (x > 100) return 100;
+  return x;
+}
+
+function syncW2(){
+  const mid2raw = document.getElementById("mid2").value.trim();
+  const w2el = document.getElementById("w2");
+
+  if(mid2raw === ""){
+    w2el.value = 0;
+    w2el.disabled = true;
+  } else {
+    w2el.disabled = false;
+  }
+}
+
+document.getElementById("mid2").addEventListener("input", syncW2);
+syncW2();
+
+function calc(){
+  const out = document.getElementById("out");
+
+  let mid1 = clamp0to100(valOrNull("mid1"));
+  let mid2 = clamp0to100(valOrNull("mid2"));
+  let fin  = clamp0to100(valOrNull("fin"));
+
+  let w1 = clamp0to100(valOrNull("w1"));
+  let w2 = clamp0to100(valOrNull("w2"));
+  let wf = clamp0to100(valOrNull("wf"));
+
+  let pass = clamp0to100(valOrNull("pass"));
+
+  if(mid1 === null || w1 === null || w2 === null || wf === null || pass === null){
+    out.innerHTML = `<span class="no">eksik alan var.</span><br/><small>vize 1 yuzdeler ve gecme notu dolu olmali, vize 2 ve final opsiyonel.</small>`;
+    return;
+  }
+
+  // Vize2 boşsa, w2'yi otomatik 0 say
+  const hasMid2 = (mid2 !== null);
+  const w2Eff = hasMid2 ? w2 : 0;
+
+  const sumW = w1 + w2Eff + wf;
+  if(sumW !== 100){
+    out.innerHTML = `<span class="no">yuzdeler toplami 100 olmali.</span><br/>
+                     <small>su an toplam: ${sumW}% (vize 2 bossa vize 2 yuzdesi 0 sayilir)</small>`;
+    return;
+  }
+
+  const a1 = w1 / 100;
+  const a2 = w2Eff / 100;
+  const af = wf / 100;
+
+  // final yüzdesi 0 ise ve final bos ise hesaplanamaz
+  if(fin === null && af === 0){
+    out.innerHTML = `<span class="no">eksik alan var.</span><br/><small>final yuzdesi 0 olamaz (final bosken finalden kac lazim hesaplanamaz).</small>`;
+    return;
+  }
+
+  // Final girildiyse toplam hesapla
+  if(fin !== null){
+    const total = a1*mid1 + a2*(hasMid2 ? mid2 : 0) + af*fin;
+    const status = total >= pass ? `<span class="ok">Gectin </span>` : `<span class="no">Kaldin </span>`;
+    out.innerHTML = `
+      ${status}<br/>
+      toplam not: <b>${total.toFixed(2)}</b>
+      <small>not: vize 2 bos birakilabilir. (bossa vize 2 yuzdesi 0 sayilir.)</small>
+    `;
+    return;
+  }
+
+  // Final boşsa: kaç lazım?
+  const current = a1*mid1 + a2*(hasMid2 ? mid2 : 0);
+  const need = (pass - current) / af;
+
+  let msg = `gecmek icin finalden en az <b>${need.toFixed(2)}</b> alman lazim.`;
+  if(need <= 0) msg = `finale girmesen bile (teorik olarak) geciyorsun.`;
+  if(need > 100) msg += `<br/><span class="no">bu kosullarda gecmen (teorik olrak) imkansiz.</span>`;
+
+  out.innerHTML = `
+    ${msg}
+    <small>not: vize 2 bos birakilabilir. (bossa vize 2 yuzdesi 0 sayilir.)</small>
+  `;
+}
+</script>
+</body>
+</html>
